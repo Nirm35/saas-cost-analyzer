@@ -226,7 +226,7 @@
             <div class="form-group">
                 <label>העלה טבלה קבועה (user name, email, dep)</label>
                 <input type="file" id="baseFile" accept=".csv">
-                <div class="help-text">CSV עם עמודות: user name, email, dep</div>
+                <div class="help-text">CSV עם עמודות email ו-dep (אפשר עמודות נוספות, היא תסתכל רק על האלה)</div>
             </div>
 
             <button class="button" onclick="saveBaseFile()">✓ שמור טבלה קבועה</button>
@@ -259,7 +259,7 @@
             <div class="form-group">
                 <label>העלה קובץ לניתוח</label>
                 <input type="file" id="analyzeFile" accept=".csv">
-                <div class="help-text">CSV עם עמודות: user name, email, שם המוצר, dep</div>
+                <div class="help-text">CSV עם עמודות email (חובה) ועמודה עם שם המוצר שהגדרת (אפשר עמודות נוספות)</div>
             </div>
 
             <button class="button" onclick="analyzeFile()">📊 חשב עלויות</button>
@@ -315,20 +315,23 @@
                     var depIndex = headers.findIndex(function(h) { return h === 'dep'; });
 
                     if (emailIndex === -1 || depIndex === -1) {
-                        alert('לא נמצאו עמודות email או dep');
+                        alert('לא נמצאו עמודות email או dep בקובץ');
                         return;
                     }
 
                     baseData = {};
+                    var successCount = 0;
                     for (var i = 1; i < lines.length; i++) {
+                        if (!lines[i].trim()) continue;
                         var parts = lines[i].split(',').map(function(p) { return p.trim(); });
                         if (parts.length > Math.max(emailIndex, depIndex) && parts[emailIndex]) {
                             baseData[parts[emailIndex].toLowerCase()] = parts[depIndex];
+                            successCount++;
                         }
                     }
 
-                    document.getElementById('setupStatus').textContent = '✓ נטען בהצלחה: ' + Object.keys(baseData).length + ' משתמשים';
-                    alert('הטבלה הקבועה נשמרה בהצלחה!');
+                    document.getElementById('setupStatus').textContent = '✓ נטען בהצלחה: ' + successCount + ' משתמשים';
+                    alert('הטבלה הקבועה נשמרה בהצלחה!\nנטענו ' + successCount + ' משתמשים');
                 } catch (error) {
                     alert('שגיאה בקריאת הקובץ: ' + error.message);
                     console.error(error);
@@ -410,12 +413,28 @@
 
                     var headers = lines[0].split(',').map(function(h) { return h.trim().toLowerCase(); });
                     var emailIndex = headers.findIndex(function(h) { return h === 'email'; });
-                    var productIndex = headers.findIndex(function(h) { 
-                        return h.includes('מוצר') || h.includes('product') || h.includes('שם');
-                    });
+                    
+                    // חפש עמודה שמכילה שם מוצר - בדוק אם היא בקובץ או השם קיים בcostingData
+                    var productIndex = -1;
+                    for (var j = 0; j < headers.length; j++) {
+                        var header = headers[j];
+                        // בדוק אם כל אחד מהמוצרים בcostingData קיים בשם העמודה
+                        var isProduct = Object.keys(costingData).some(function(product) { 
+                            return header.toLowerCase() === product.toLowerCase(); 
+                        });
+                        if (isProduct) {
+                            productIndex = j;
+                            break;
+                        }
+                    }
 
-                    if (emailIndex === -1 || productIndex === -1) {
-                        alert('לא נמצאו עמודות email או שם מוצר');
+                    if (emailIndex === -1) {
+                        alert('לא נמצאה עמודת email בקובץ');
+                        return;
+                    }
+                    
+                    if (productIndex === -1) {
+                        alert('לא נמצאה עמודה עם שם המוצר שהגדרת');
                         return;
                     }
 
@@ -455,7 +474,7 @@
                     var html = '<div class="metrics"><div class="metric-card"><div class="metric-label">סה"כ משתמשים</div><div class="metric-value">' + totalUsers + '</div></div><div class="metric-card"><div class="metric-label">עלות חודשית כוללת</div><div class="metric-value">₪' + totalMonthlyCost.toFixed(2) + '</div></div></div>';
 
                     if (unmatched > 0) {
-                        html += '<div style="background: #ffeaa7; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 14px;">⚠️ ' + unmatched + ' משתמשים לא תאמו</div>';
+                        html += '<div style="background: #ffeaa7; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 14px;">⚠️ ' + unmatched + ' שורות לא תאמו (email לא נמצא בטבלה הקבועה או מוצר לא מוגדר)</div>';
                     }
 
                     html += '<table><thead><tr><th>מחלקה</th><th style="text-align: center;">משתמשים</th><th style="text-align: center;">אחוז</th><th style="text-align: center;">עלות חודשית</th></tr></thead><tbody>';
