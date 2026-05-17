@@ -285,13 +285,6 @@
         <!-- TAB 3: ANALYZE -->
         <div id="analyze" class="tab-content">
             <div class="form-group">
-                <label>בחר טבלה קבועה</label>
-                <select id="tableSelect" style="width: 100%; padding: 10px 12px; border: 1px solid #d0d0d0; border-radius: 4px; font-size: 14px;">
-                    <option value="">-- בחר טבלה --</option>
-                </select>
-            </div>
-
-            <div class="form-group">
                 <label>העלה קובץ לניתוח</label>
                 <input type="file" id="analyzeFile" accept=".csv">
                 <div class="help-text">CSV עם עמודות email ועמודה עם שם המוצר (אפשר עמודות נוספות)</div>
@@ -329,7 +322,6 @@
         // Update UI
         function updateUI() {
             updateSetupStatus();
-            updateTableSelect();
             updatePricingStatus();
         }
 
@@ -427,18 +419,6 @@
             }
         }
 
-        function updateTableSelect() {
-            var select = document.getElementById('tableSelect');
-            var tables = Object.keys(baseDataMap);
-            select.innerHTML = '<option value="">-- בחר טבלה --</option>';
-            tables.forEach(function(table) {
-                var option = document.createElement('option');
-                option.value = table;
-                option.textContent = table;
-                select.appendChild(option);
-            });
-        }
-
         function deleteTable(tableName) {
             if (confirm('האם אתה בטוח שברצונך למחוק את הטבלה "' + tableName + '"?')) {
                 delete baseDataMap[tableName];
@@ -491,17 +471,28 @@
         }
 
         function analyzeFile() {
-            var selectedTable = document.getElementById('tableSelect').value;
-            
-            if (!selectedTable) {
-                alert('בחר טבלה קבועה');
+            if (Object.keys(baseDataMap).length === 0) {
+                alert('אין טבלאות קבועות. העלה טבלה בתסמונת "הגדרה" תחילה');
                 return;
             }
 
-            var baseData = baseDataMap[selectedTable];
-
             if (Object.keys(costingData).length === 0) {
                 alert('קודם כל הגדר עלויות בתסמונת "עלויות"');
+                return;
+            }
+
+            // ממזג את כל הטבלאות הקבועות יחד (מניע דופליקציות)
+            var baseData = {};
+            var tables = Object.keys(baseDataMap);
+            tables.forEach(function(table) {
+                var tableData = baseDataMap[table];
+                Object.keys(tableData).forEach(function(email) {
+                    baseData[email] = tableData[email];
+                });
+            });
+
+            if (Object.keys(baseData).length === 0) {
+                alert('הטבלאות הקבועות ריקות');
                 return;
             }
 
