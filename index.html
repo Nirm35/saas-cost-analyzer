@@ -487,7 +487,9 @@
             tables.forEach(function(table) {
                 var tableData = baseDataMap[table];
                 Object.keys(tableData).forEach(function(email) {
-                    baseData[email] = tableData[email];
+                    if (!baseData[email]) {
+                        baseData[email] = tableData[email];
+                    }
                 });
             });
 
