@@ -543,7 +543,7 @@
                     }
 
                     var departments = {};
-                    var unmatched = 0;
+                    var unmatchedRows = [];
                     var processedCount = 0;
 
                     for (var i = 1; i < lines.length; i++) {
@@ -563,7 +563,12 @@
                                 departments[dept].cost += cost;
                                 processedCount++;
                             } else {
-                                unmatched++;
+                                unmatchedRows.push({
+                                    rowNum: i + 1,
+                                    email: email,
+                                    product: product,
+                                    reason: !dept ? 'email לא נמצא בטבלה הקבועה' : 'מוצר לא מוגדר'
+                                });
                             }
                         }
                     }
@@ -585,8 +590,9 @@
 
                     var html = '<div class="metrics"><div class="metric-card"><div class="metric-label">סה"כ משתמשים שהתאימו</div><div class="metric-value">' + totalUsers + '</div></div><div class="metric-card"><div class="metric-label">עלות חודשית כוללת</div><div class="metric-value">₪' + totalMonthlyCost.toFixed(2) + '</div></div></div>';
 
-                    if (unmatched > 0) {
-                        html += '<div style="background: #ffeaa7; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 14px;">⚠️ ' + unmatched + ' שורות לא תאמו (email לא נמצא בטבלה הקבועה או מוצר לא מוגדר)</div>';
+                    if (unmatchedRows.length > 0) {
+                        html += '<div style="background: #ffeaa7; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 14px;">⚠️ ' + unmatchedRows.length + ' שורות לא תאמו</div>';
+                        html += '<button class="button" onclick="downloadUnmatched(' + JSON.stringify(unmatchedRows).replace(/'/g, "\\'") + ')" style="margin-bottom: 16px;">📥 הורד שורות שלא תאמו (CSV)</button>';
                     }
 
                     html += '<table><thead><tr><th>מחלקה</th><th style="text-align: center;">משתמשים</th><th style="text-align: center;">אחוז</th><th style="text-align: center;">עלות חודשית</th></tr></thead><tbody>';
@@ -613,6 +619,30 @@
         window.addEventListener('load', function() {
             loadFromStorage();
         });
+
+        function downloadUnmatched(unmatchedRows) {
+            if (!unmatchedRows || unmatchedRows.length === 0) {
+                alert('אין שורות לא תואמות להורדה');
+                return;
+            }
+
+            // בנה CSV
+            var csv = 'שורה,אימייל,מוצר,סיבה\n';
+            unmatchedRows.forEach(function(row) {
+                csv += row.rowNum + ',' + row.email + ',' + row.product + ',' + row.reason + '\n';
+            });
+
+            // יצור קובץ
+            var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            var link = document.createElement('a');
+            var url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'unmatched_rows_' + new Date().getTime() + '.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
     </script>
 </body>
 </html>
