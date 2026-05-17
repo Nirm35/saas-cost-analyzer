@@ -39,10 +39,12 @@
             display: flex;
             border-bottom: 1px solid #e0e0e0;
             background: #fafafa;
+            flex-wrap: wrap;
         }
 
         .tab-button {
             flex: 1;
+            min-width: 120px;
             padding: 12px 16px;
             border: none;
             background: transparent;
@@ -175,7 +177,7 @@
             font-size: 14px;
         }
 
-        .cost-item {
+        .table-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -186,7 +188,7 @@
             border: 1px solid #e0e0e0;
         }
 
-        .cost-item-delete {
+        .table-item-delete {
             padding: 6px 12px;
             background: #ffebee;
             color: #c33;
@@ -200,6 +202,25 @@
             font-size: 13px;
             color: #999;
             margin-top: 4px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .button-group button {
+            flex: 1;
+        }
+
+        .button.secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .button.secondary:hover {
+            background: #d0d0d0;
         }
     </style>
 </head>
@@ -219,17 +240,24 @@
         <!-- TAB 1: SETUP -->
         <div id="setup" class="tab-content active">
             <div class="status-box">
-                <div class="status-label">סטטוס</div>
-                <div class="status-value" id="setupStatus">בהמתנה להעלאת טבלה קבועה</div>
+                <div class="status-label">טבלאות קבועות שמורות</div>
+                <div class="status-value" id="setupStatus">אין טבלאות עדיין</div>
             </div>
 
             <div class="form-group">
-                <label>העלה טבלה קבועה (user name, email, dep)</label>
+                <label>שם הטבלה הקבועה (למשל: עובדים 2026)</label>
+                <input type="text" id="tableName" placeholder="שם תיאורי לטבלה">
+            </div>
+
+            <div class="form-group">
+                <label>העלה טבלה קבועה (email + dep)</label>
                 <input type="file" id="baseFile" accept=".csv">
-                <div class="help-text">CSV עם עמודות email ו-dep (אפשר עמודות נוספות, היא תסתכל רק על האלה)</div>
+                <div class="help-text">CSV עם עמודות email ודep (אפשר עמודות נוספות)</div>
             </div>
 
             <button class="button" onclick="saveBaseFile()">✓ שמור טבלה קבועה</button>
+
+            <div id="tablesList" style="margin-top: 20px;"></div>
         </div>
 
         <!-- TAB 2: PRICING -->
@@ -257,9 +285,16 @@
         <!-- TAB 3: ANALYZE -->
         <div id="analyze" class="tab-content">
             <div class="form-group">
+                <label>בחר טבלה קבועה</label>
+                <select id="tableSelect" style="width: 100%; padding: 10px 12px; border: 1px solid #d0d0d0; border-radius: 4px; font-size: 14px;">
+                    <option value="">-- בחר טבלה --</option>
+                </select>
+            </div>
+
+            <div class="form-group">
                 <label>העלה קובץ לניתוח</label>
                 <input type="file" id="analyzeFile" accept=".csv">
-                <div class="help-text">CSV עם עמודות email (חובה) ועמודה עם שם המוצר שהגדרת (אפשר עמודות נוספות)</div>
+                <div class="help-text">CSV עם עמודות email ועמודה עם שם המוצר (אפשר עמודות נוספות)</div>
             </div>
 
             <button class="button" onclick="analyzeFile()">📊 חשב עלויות</button>
@@ -269,9 +304,34 @@
     </div>
 
     <script>
-        // Initialize variables at the top
-        var baseData = null;
+        var baseDataMap = {};
         var costingData = {};
+
+        // Load from localStorage on page load
+        function loadFromStorage() {
+            var stored = localStorage.getItem('saascost_basedatamap');
+            if (stored) {
+                baseDataMap = JSON.parse(stored);
+            }
+            var storedCosts = localStorage.getItem('saascost_costingdata');
+            if (storedCosts) {
+                costingData = JSON.parse(storedCosts);
+            }
+            updateUI();
+        }
+
+        // Save to localStorage
+        function saveToStorage() {
+            localStorage.setItem('saascost_basedatamap', JSON.stringify(baseDataMap));
+            localStorage.setItem('saascost_costingdata', JSON.stringify(costingData));
+        }
+
+        // Update UI
+        function updateUI() {
+            updateSetupStatus();
+            updateTableSelect();
+            updatePricingStatus();
+        }
 
         function switchTab(event, tabName) {
             event.preventDefault();
@@ -291,8 +351,14 @@
         }
 
         function saveBaseFile() {
+            var tableName = document.getElementById('tableName').value.trim();
             var fileInput = document.getElementById('baseFile');
             var file = fileInput.files[0];
+
+            if (!tableName) {
+                alert('הזן שם לטבלה');
+                return;
+            }
 
             if (!file) {
                 alert('בחר קובץ CSV');
@@ -319,25 +385,66 @@
                         return;
                     }
 
-                    baseData = {};
+                    var tableData = {};
                     var successCount = 0;
                     for (var i = 1; i < lines.length; i++) {
                         if (!lines[i].trim()) continue;
                         var parts = lines[i].split(',').map(function(p) { return p.trim(); });
                         if (parts.length > Math.max(emailIndex, depIndex) && parts[emailIndex]) {
-                            baseData[parts[emailIndex].toLowerCase()] = parts[depIndex];
+                            tableData[parts[emailIndex].toLowerCase()] = parts[depIndex];
                             successCount++;
                         }
                     }
 
-                    document.getElementById('setupStatus').textContent = '✓ נטען בהצלחה: ' + successCount + ' משתמשים';
-                    alert('הטבלה הקבועה נשמרה בהצלחה!\nנטענו ' + successCount + ' משתמשים');
+                    baseDataMap[tableName] = tableData;
+                    saveToStorage();
+                    updateUI();
+                    
+                    document.getElementById('tableName').value = '';
+                    document.getElementById('baseFile').value = '';
+                    alert('הטבלה "' + tableName + '" נשמרה בהצלחה!\nנטענו ' + successCount + ' משתמשים');
                 } catch (error) {
                     alert('שגיאה בקריאת הקובץ: ' + error.message);
                     console.error(error);
                 }
             };
             reader.readAsText(file);
+        }
+
+        function updateSetupStatus() {
+            var tables = Object.keys(baseDataMap);
+            if (tables.length === 0) {
+                document.getElementById('setupStatus').textContent = 'אין טבלאות עדיין';
+                document.getElementById('tablesList').innerHTML = '';
+            } else {
+                document.getElementById('setupStatus').textContent = tables.length + ' טבלאות שמורות';
+                var html = '';
+                tables.forEach(function(table) {
+                    var count = Object.keys(baseDataMap[table]).length;
+                    html += '<div class="table-item"><div><strong>' + table + '</strong><br><span class="help-text">' + count + ' משתמשים</span></div><button class="table-item-delete" onclick="deleteTable(\'' + table.replace(/'/g, "\\'") + '\')">מחק</button></div>';
+                });
+                document.getElementById('tablesList').innerHTML = html;
+            }
+        }
+
+        function updateTableSelect() {
+            var select = document.getElementById('tableSelect');
+            var tables = Object.keys(baseDataMap);
+            select.innerHTML = '<option value="">-- בחר טבלה --</option>';
+            tables.forEach(function(table) {
+                var option = document.createElement('option');
+                option.value = table;
+                option.textContent = table;
+                select.appendChild(option);
+            });
+        }
+
+        function deleteTable(tableName) {
+            if (confirm('האם אתה בטוח שברצונך למחוק את הטבלה "' + tableName + '"?')) {
+                delete baseDataMap[tableName];
+                saveToStorage();
+                updateUI();
+            }
         }
 
         function updatePricingStatus() {
@@ -349,7 +456,7 @@
                 document.getElementById('pricingStatus').textContent = products.length + ' מוצרים שהוגדרו';
                 var html = '';
                 products.forEach(function(product) {
-                    html += '<div class="cost-item"><div><strong>' + product + '</strong><br><span class="help-text">₪' + costingData[product].toFixed(2) + ' לכל משתמש</span></div><button class="cost-item-delete" onclick="deleteCost(\'' + product + '\')">מחק</button></div>';
+                    html += '<div class="table-item"><div><strong>' + product + '</strong><br><span class="help-text">₪' + costingData[product].toFixed(2) + ' לכל משתמש</span></div><button class="table-item-delete" onclick="deleteCost(\'' + product.replace(/'/g, "\\'") + '\')">מחק</button></div>';
                 });
                 document.getElementById('costsList').innerHTML = html;
             }
@@ -357,6 +464,7 @@
 
         function deleteCost(product) {
             delete costingData[product];
+            saveToStorage();
             updatePricingStatus();
         }
 
@@ -375,6 +483,7 @@
             }
 
             costingData[productName] = productCost;
+            saveToStorage();
             document.getElementById('productName').value = '';
             document.getElementById('productCost').value = '';
             updatePricingStatus();
@@ -382,10 +491,14 @@
         }
 
         function analyzeFile() {
-            if (!baseData) {
-                alert('קודם כל עלה את הטבלה הקבועה בתסמונת "הגדרה"');
+            var selectedTable = document.getElementById('tableSelect').value;
+            
+            if (!selectedTable) {
+                alert('בחר טבלה קבועה');
                 return;
             }
+
+            var baseData = baseDataMap[selectedTable];
 
             if (Object.keys(costingData).length === 0) {
                 alert('קודם כל הגדר עלויות בתסמונת "עלויות"');
@@ -414,11 +527,14 @@
                     var headers = lines[0].split(',').map(function(h) { return h.trim().toLowerCase(); });
                     var emailIndex = headers.findIndex(function(h) { return h === 'email'; });
                     
-                    // חפש עמודה שמכילה שם מוצר - בדוק אם היא בקובץ או השם קיים בcostingData
+                    if (emailIndex === -1) {
+                        alert('לא נמצאה עמודת email בקובץ');
+                        return;
+                    }
+
                     var productIndex = -1;
                     for (var j = 0; j < headers.length; j++) {
                         var header = headers[j];
-                        // בדוק אם כל אחד מהמוצרים בcostingData קיים בשם העמודה
                         var isProduct = Object.keys(costingData).some(function(product) { 
                             return header.toLowerCase() === product.toLowerCase(); 
                         });
@@ -428,11 +544,6 @@
                         }
                     }
 
-                    if (emailIndex === -1) {
-                        alert('לא נמצאה עמודת email בקובץ');
-                        return;
-                    }
-                    
                     if (productIndex === -1) {
                         alert('לא נמצאה עמודה עם שם המוצר שהגדרת');
                         return;
@@ -440,8 +551,10 @@
 
                     var departments = {};
                     var unmatched = 0;
+                    var processedCount = 0;
 
                     for (var i = 1; i < lines.length; i++) {
+                        if (!lines[i].trim()) continue;
                         var parts = lines[i].split(',').map(function(p) { return p.trim(); });
                         if (parts.length > Math.max(emailIndex, productIndex) && parts[emailIndex]) {
                             var email = parts[emailIndex].toLowerCase();
@@ -455,10 +568,16 @@
                                 }
                                 departments[dept].users += 1;
                                 departments[dept].cost += cost;
+                                processedCount++;
                             } else {
                                 unmatched++;
                             }
                         }
+                    }
+
+                    if (processedCount === 0) {
+                        alert('לא הצליח למצוא משתמשים תואמים או מוצרים תקינים');
+                        return;
                     }
 
                     var sorted = Object.entries(departments).sort(function(a, b) { 
@@ -471,7 +590,7 @@
                         return sum + item[1].cost; 
                     }, 0);
 
-                    var html = '<div class="metrics"><div class="metric-card"><div class="metric-label">סה"כ משתמשים</div><div class="metric-value">' + totalUsers + '</div></div><div class="metric-card"><div class="metric-label">עלות חודשית כוללת</div><div class="metric-value">₪' + totalMonthlyCost.toFixed(2) + '</div></div></div>';
+                    var html = '<div class="metrics"><div class="metric-card"><div class="metric-label">סה"כ משתמשים שהתאימו</div><div class="metric-value">' + totalUsers + '</div></div><div class="metric-card"><div class="metric-label">עלות חודשית כוללת</div><div class="metric-value">₪' + totalMonthlyCost.toFixed(2) + '</div></div></div>';
 
                     if (unmatched > 0) {
                         html += '<div style="background: #ffeaa7; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 14px;">⚠️ ' + unmatched + ' שורות לא תאמו (email לא נמצא בטבלה הקבועה או מוצר לא מוגדר)</div>';
@@ -496,6 +615,11 @@
             };
             reader.readAsText(file);
         }
+
+        // Load data on page load
+        window.addEventListener('load', function() {
+            loadFromStorage();
+        });
     </script>
 </body>
 </html>
