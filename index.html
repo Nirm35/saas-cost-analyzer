@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מנתח עלויות SaaS</title>
+    <script src="https://res.cdn.office.net/teams-js/2.16.1/js/microsoft.teams.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: #f5f5f5;
+            padding: 16px;
+            direction: rtl;
+            color: #333;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #004578;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 4px;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #e0e0e0;
+            background: #fafafa;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab-button.active {
+            color: #004578;
+            border-bottom-color: #004578;
+        }
+
+        .tab-button:hover {
+            background: #f0f0f0;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 20px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 6px;
+            color: #333;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="file"],
+        select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d0d0d0;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        input[type="file"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #004578;
+            box-shadow: 0 0 0 2px rgba(0,69,120,0.1);
+        }
+
+        .button {
+            padding: 10px 16px;
+            background: #004578;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s ease;
+        }
+
+        .button:hover {
+            background: #003562;
+        }
+
+        .button:active {
+            transform: scale(0.98);
+        }
+
+        .button.secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .button.secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .status-box {
+            background: #f5f5f5;
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            border-right: 4px solid #004578;
+        }
+
+        .status-label {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 4px;
+        }
+
+        .status-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .status-success {
+            border-right-color: #27ae60;
+        }
+
+        .status-success .status-value {
+            color: #27ae60;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .warning {
+            background: #ffeaa7;
+            color: #856404;
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .cost-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #fafafa;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .cost-item-info {
+            flex: 1;
+        }
+
+        .cost-item-name {
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .cost-item-price {
+            font-size: 13px;
+            color: #999;
+        }
+
+        .cost-item-delete {
+            padding: 6px 12px;
+            background: #ffebee;
+            color: #c33;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .cost-item-delete:hover {
+            background: #ffcdd2;
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .metric-card {
+            background: #f5f5f5;
+            padding: 16px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 8px;
+        }
+
+        .metric-value {
+            font-size: 28px;
+            font-weight: 600;
+            color: #004578;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+
+        thead {
+            background: #f5f5f5;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        th {
+            padding: 12px;
+            text-align: right;
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 14px;
+        }
+
+        tr:hover {
+            background: #fafafa;
+        }
+
+        .help-text {
+            font-size: 13px;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💰 מנתח עלויות SaaS</h1>
+            <p>ניתוח עלויות מוצרים לפי מחלקה</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-button active" onclick="switchTab('setup')">הגדרה</button>
+            <button class="tab-button" onclick="switchTab('pricing')">עלויות</button>
+            <button class="tab-button" onclick="switchTab('analyze')">ניתוח</button>
+        </div>
+
+        <!-- TAB 1: SETUP -->
+        <div id="setup" class="tab-content active">
+            <div class="status-box">
+                <div class="status-label">סטטוס</div>
+                <div class="status-value" id="setupStatus">בהמתנה להעלאת טבלה קבועה</div>
+            </div>
+
+            <div class="form-group">
+                <label>העלה טבלה קבועה (user name, email, dep)</label>
+                <input type="file" id="baseFile" accept=".csv">
+                <div class="help-text">CSV עם עמודות: user name, email, dep</div>
+            </div>
+
+            <button class="button" onclick="saveBaseFile()">✓ שמור טבלה קבועה</button>
+        </div>
+
+        <!-- TAB 2: PRICING -->
+        <div id="pricing" class="tab-content">
+            <div class="status-box">
+                <div class="status-label">מוצרים שהוגדרו</div>
+                <div class="status-value" id="pricingStatus">אין עלויות שהוגדרו עדיין</div>
+            </div>
+
+            <div class="form-group">
+                <label>שם המוצר</label>
+                <input type="text" id="productName" placeholder="למשל: Slack, Jira, Figma">
+            </div>
+
+            <div class="form-group">
+                <label>עלות חודשית לכל משתמש (₪)</label>
+                <input type="number" id="productCost" placeholder="למשל: 50" step="0.01" min="0">
+            </div>
+
+            <button class="button" onclick="addCost()">+ הוסף מוצר</button>
+
+            <div id="costsList" style="margin-top: 20px;"></div>
+        </div>
+
+        <!-- TAB 3: ANALYZE -->
+        <div id="analyze" class="tab-content">
+            <div class="form-group">
+                <label>העלה קובץ לניתוח</label>
+                <input type="file" id="analyzeFile" accept=".csv">
+                <div class="help-text">CSV עם עמודות: user name, email, שם המוצר, dep</div>
+            </div>
+
+            <button class="button" onclick="analyzeFile()">📊 חשב עלויות</button>
+
+            <div id="results" style="margin-top: 20px;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Teams
+        microsoftTeams.app.initialize();
+
+        let baseData = null;
+        let costingData = {};
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+            document.getElementById(tab).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        async function saveBaseFile() {
+            const fileInput = document.getElementById('baseFile');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert('בחר קובץ CSV');
+                return;
+            }
+
+            const text = await file.text();
+            const lines = text.trim().split('\n');
+
+            if (lines.length < 2) {
+                alert('הקובץ ריק או לא תקין');
+                return;
+            }
+
+            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+            const emailIndex = headers.findIndex(h => h === 'email');
+            const depIndex = headers.findIndex(h => h === 'dep');
+
+            if (emailIndex === -1 || depIndex === -1) {
+                alert('לא נמצאו עמודות email או dep');
+                return;
+            }
+
+            baseData = {};
+            for (let i = 1; i < lines.length; i++) {
+                const parts = lines[i].split(',').map(p => p.trim());
+                if (parts.length > Math.max(emailIndex, depIndex) && parts[emailIndex]) {
+                    baseData[parts[emailIndex].toLowerCase()] = parts[depIndex];
+                }
+            }
+
+            document.getElementById('setupStatus').innerHTML = `✓ נטען בהצלחה: ${Object.keys(baseData).length} משתמשים`;
+            document.getElementById('setupStatus').parentElement.classList.add('status-success');
+            alert('הטבלה הקבועה נשמרה בהצלחה!');
+        }
+
+        function updatePricingStatus() {
+            const products = Object.keys(costingData);
+            if (products.length === 0) {
+                document.getElementById('pricingStatus').textContent = 'אין עלויות שהוגדרו עדיין';
+                document.getElementById('costsList').innerHTML = '';
+            } else {
+                document.getElementById('pricingStatus').textContent = `${products.length} מוצרים שהוגדרו`;
+                let html = '';
+                products.forEach(product => {
+                    html += `
+                        <div class="cost-item">
+                            <div class="cost-item-info">
+                                <div class="cost-item-name">${product}</div>
+                                <div class="cost-item-price">₪${costingData[product].toFixed(2)} לכל משתמש</div>
+                            </div>
+                            <button class="cost-item-delete" onclick="deleteCost('${product}')">מחק</button>
+                        </div>
+                    `;
+                });
+                document.getElementById('costsList').innerHTML = html;
+            }
+        }
+
+        function deleteCost(product) {
+            delete costingData[product];
+            updatePricingStatus();
+        }
+
+        function addCost() {
+            const productName = document.getElementById('productName').value.trim();
+            const productCost = parseFloat(document.getElementById('productCost').value);
+
+            if (!productName) {
+                alert('הזן שם מוצר');
+                return;
+            }
+
+            if (isNaN(productCost) || productCost < 0) {
+                alert('הזן עלות תקינה');
+                return;
+            }
+
+            costingData[productName] = productCost;
+            document.getElementById('productName').value = '';
+            document.getElementById('productCost').value = '';
+            updatePricingStatus();
+        }
+
+        async function analyzeFile() {
+            if (!baseData) {
+                alert('קודם כל עלה את הטבלה הקבועה בתסמונת "הגדרה"');
+                return;
+            }
+
+            if (Object.keys(costingData).length === 0) {
+                alert('קודם כל הגדר עלויות בתסמונת "עלויות"');
+                return;
+            }
+
+            const fileInput = document.getElementById('analyzeFile');
+            const file = fileInput.files[0];
+
+            if (!file) {
+                alert('בחר קובץ CSV');
+                return;
+            }
+
+            const text = await file.text();
+            const lines = text.trim().split('\n');
+
+            if (lines.length < 2) {
+                alert('הקובץ ריק או לא תקין');
+                return;
+            }
+
+            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+            const emailIndex = headers.findIndex(h => h === 'email');
+            const productIndex = headers.findIndex(h =>
+                h.includes('מוצר') || h.includes('product') || h.includes('שם') || h.includes('name')
+            );
+
+            if (emailIndex === -1 || productIndex === -1) {
+                alert('לא נמצאו עמודות email או שם מוצר');
+                return;
+            }
+
+            const departments = {};
+            let processedUsers = 0;
+            let unmatched = 0;
+
+            for (let i = 1; i < lines.length; i++) {
+                const parts = lines[i].split(',').map(p => p.trim());
+                if (parts.length > Math.max(emailIndex, productIndex) && parts[emailIndex]) {
+                    const email = parts[emailIndex].toLowerCase();
+                    const product = parts[productIndex];
+                    const dept = baseData[email];
+                    const cost = costingData[product];
+
+                    if (dept && cost !== undefined) {
+                        if (!departments[dept]) {
+                            departments[dept] = { users: 0, cost: 0 };
+                        }
+                        departments[dept].users += 1;
+                        departments[dept].cost += cost;
+                        processedUsers++;
+                    } else {
+                        unmatched++;
+                    }
+                }
+            }
+
+            const sorted = Object.entries(departments).sort((a, b) => b[1].cost - a[1].cost);
+            const totalUsers = sorted.reduce((sum, [_, data]) => sum + data.users, 0);
+            const totalMonthlyCost = sorted.reduce((sum, [_, data]) => sum + data.cost, 0);
+
+            let html = `
+                <div class="metrics">
+                    <div class="metric-card">
+                        <div class="metric-label">סה"כ משתמשים</div>
+                        <div class="metric-value">${totalUsers}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">עלות חודשית כוללת</div>
+                        <div class="metric-value">₪${totalMonthlyCost.toFixed(2)}</div>
+                    </div>
+                </div>
+            `;
+
+            if (unmatched > 0) {
+                html += `<div class="warning">⚠️ ${unmatched} משתמשים לא תאמו (אימייל או מוצר לא נמצא)</div>`;
+            }
+
+            html += `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>מחלקה</th>
+                            <th style="text-align: center;">משתמשים</th>
+                            <th style="text-align: center;">אחוז</th>
+                            <th style="text-align: center;">עלות חודשית</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            sorted.forEach(([dept, data]) => {
+                const percentage = ((data.users / totalUsers) * 100).toFixed(1);
+                html += `
+                    <tr>
+                        <td>${dept}</td>
+                        <td style="text-align: center; font-weight: 600;">${data.users}</td>
+                        <td style="text-align: center;">${percentage}%</td>
+                        <td style="text-align: center; font-weight: 600;">₪${data.cost.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                    </tbody>
+                </table>
+            `;
+
+            document.getElementById('results').innerHTML = html;
+        }
+    </script>
+</body>
+</html>
