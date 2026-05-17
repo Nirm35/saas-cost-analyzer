@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מנתח עלויות SaaS</title>
-    <script src="https://res.cdn.office.net/teams-js/2.16.1/js/microsoft.teams.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -36,11 +35,6 @@
             text-align: center;
         }
 
-        .header h1 {
-            font-size: 24px;
-            margin-bottom: 4px;
-        }
-
         .tabs {
             display: flex;
             border-bottom: 1px solid #e0e0e0;
@@ -57,7 +51,6 @@
             font-weight: 500;
             color: #666;
             border-bottom: 3px solid transparent;
-            transition: all 0.3s ease;
         }
 
         .tab-button.active {
@@ -65,23 +58,13 @@
             border-bottom-color: #004578;
         }
 
-        .tab-button:hover {
-            background: #f0f0f0;
-        }
-
         .tab-content {
             display: none;
             padding: 20px;
-            animation: fadeIn 0.3s ease;
         }
 
         .tab-content.active {
             display: block;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
         }
 
         .form-group {
@@ -93,28 +76,17 @@
             font-size: 14px;
             font-weight: 500;
             margin-bottom: 6px;
-            color: #333;
         }
 
         input[type="text"],
         input[type="number"],
-        input[type="file"],
-        select {
+        input[type="file"] {
             width: 100%;
             padding: 10px 12px;
             border: 1px solid #d0d0d0;
             border-radius: 4px;
             font-size: 14px;
             font-family: inherit;
-        }
-
-        input[type="text"]:focus,
-        input[type="number"]:focus,
-        input[type="file"]:focus,
-        select:focus {
-            outline: none;
-            border-color: #004578;
-            box-shadow: 0 0 0 2px rgba(0,69,120,0.1);
         }
 
         .button {
@@ -126,24 +98,10 @@
             cursor: pointer;
             font-size: 14px;
             font-weight: 500;
-            transition: background 0.2s ease;
         }
 
         .button:hover {
             background: #003562;
-        }
-
-        .button:active {
-            transform: scale(0.98);
-        }
-
-        .button.secondary {
-            background: #e0e0e0;
-            color: #333;
-        }
-
-        .button.secondary:hover {
-            background: #d0d0d0;
         }
 
         .status-box {
@@ -164,72 +122,6 @@
             font-size: 16px;
             font-weight: 600;
             color: #333;
-        }
-
-        .status-success {
-            border-right-color: #27ae60;
-        }
-
-        .status-success .status-value {
-            color: #27ae60;
-        }
-
-        .error {
-            background: #fee;
-            color: #c33;
-            padding: 12px 16px;
-            border-radius: 4px;
-            margin-bottom: 16px;
-            font-size: 14px;
-        }
-
-        .warning {
-            background: #ffeaa7;
-            color: #856404;
-            padding: 12px 16px;
-            border-radius: 4px;
-            margin-bottom: 16px;
-            font-size: 14px;
-        }
-
-        .cost-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px;
-            background: #fafafa;
-            border-radius: 4px;
-            margin-bottom: 8px;
-            border: 1px solid #e0e0e0;
-        }
-
-        .cost-item-info {
-            flex: 1;
-        }
-
-        .cost-item-name {
-            font-weight: 500;
-            color: #333;
-            margin-bottom: 4px;
-        }
-
-        .cost-item-price {
-            font-size: 13px;
-            color: #999;
-        }
-
-        .cost-item-delete {
-            padding: 6px 12px;
-            background: #ffebee;
-            color: #c33;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-
-        .cost-item-delete:hover {
-            background: #ffcdd2;
         }
 
         .metrics {
@@ -283,25 +175,31 @@
             font-size: 14px;
         }
 
-        tr:hover {
+        .cost-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
             background: #fafafa;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .cost-item-delete {
+            padding: 6px 12px;
+            background: #ffebee;
+            color: #c33;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
         }
 
         .help-text {
             font-size: 13px;
             color: #999;
             margin-top: 4px;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: #999;
-        }
-
-        .empty-state-icon {
-            font-size: 48px;
-            margin-bottom: 16px;
         }
     </style>
 </head>
@@ -313,9 +211,9 @@
         </div>
 
         <div class="tabs">
-            <button class="tab-button active" onclick="switchTab('setup')">הגדרה</button>
-            <button class="tab-button" onclick="switchTab('pricing')">עלויות</button>
-            <button class="tab-button" onclick="switchTab('analyze')">ניתוח</button>
+            <button class="tab-button active" onclick="switchTab(event, 'setup')">הגדרה</button>
+            <button class="tab-button" onclick="switchTab(event, 'pricing')">עלויות</button>
+            <button class="tab-button" onclick="switchTab(event, 'analyze')">ניתוח</button>
         </div>
 
         <!-- TAB 1: SETUP -->
@@ -371,76 +269,84 @@
     </div>
 
     <script>
-        // Initialize Teams
-        microsoftTeams.app.initialize();
+        // Initialize variables at the top
+        var baseData = null;
+        var costingData = {};
 
-        let baseData = null;
-        let costingData = {};
-
-        function switchTab(tab) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
-            document.getElementById(tab).classList.add('active');
+        function switchTab(event, tabName) {
+            event.preventDefault();
+            
+            var tabs = document.querySelectorAll('.tab-content');
+            tabs.forEach(function(tab) {
+                tab.classList.remove('active');
+            });
+            
+            var buttons = document.querySelectorAll('.tab-button');
+            buttons.forEach(function(btn) {
+                btn.classList.remove('active');
+            });
+            
+            document.getElementById(tabName).classList.add('active');
             event.target.classList.add('active');
         }
 
-        async function saveBaseFile() {
-            const fileInput = document.getElementById('baseFile');
-            const file = fileInput.files[0];
+        function saveBaseFile() {
+            var fileInput = document.getElementById('baseFile');
+            var file = fileInput.files[0];
 
             if (!file) {
                 alert('בחר קובץ CSV');
                 return;
             }
 
-            const text = await file.text();
-            const lines = text.trim().split('\n');
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    var text = e.target.result;
+                    var lines = text.trim().split('\n');
 
-            if (lines.length < 2) {
-                alert('הקובץ ריק או לא תקין');
-                return;
-            }
+                    if (lines.length < 2) {
+                        alert('הקובץ ריק או לא תקין');
+                        return;
+                    }
 
-            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-            const emailIndex = headers.findIndex(h => h === 'email');
-            const depIndex = headers.findIndex(h => h === 'dep');
+                    var headers = lines[0].split(',').map(function(h) { return h.trim().toLowerCase(); });
+                    var emailIndex = headers.findIndex(function(h) { return h === 'email'; });
+                    var depIndex = headers.findIndex(function(h) { return h === 'dep'; });
 
-            if (emailIndex === -1 || depIndex === -1) {
-                alert('לא נמצאו עמודות email או dep');
-                return;
-            }
+                    if (emailIndex === -1 || depIndex === -1) {
+                        alert('לא נמצאו עמודות email או dep');
+                        return;
+                    }
 
-            baseData = {};
-            for (let i = 1; i < lines.length; i++) {
-                const parts = lines[i].split(',').map(p => p.trim());
-                if (parts.length > Math.max(emailIndex, depIndex) && parts[emailIndex]) {
-                    baseData[parts[emailIndex].toLowerCase()] = parts[depIndex];
+                    baseData = {};
+                    for (var i = 1; i < lines.length; i++) {
+                        var parts = lines[i].split(',').map(function(p) { return p.trim(); });
+                        if (parts.length > Math.max(emailIndex, depIndex) && parts[emailIndex]) {
+                            baseData[parts[emailIndex].toLowerCase()] = parts[depIndex];
+                        }
+                    }
+
+                    document.getElementById('setupStatus').textContent = '✓ נטען בהצלחה: ' + Object.keys(baseData).length + ' משתמשים';
+                    alert('הטבלה הקבועה נשמרה בהצלחה!');
+                } catch (error) {
+                    alert('שגיאה בקריאת הקובץ: ' + error.message);
+                    console.error(error);
                 }
-            }
-
-            document.getElementById('setupStatus').innerHTML = `✓ נטען בהצלחה: ${Object.keys(baseData).length} משתמשים`;
-            document.getElementById('setupStatus').parentElement.classList.add('status-success');
-            alert('הטבלה הקבועה נשמרה בהצלחה!');
+            };
+            reader.readAsText(file);
         }
 
         function updatePricingStatus() {
-            const products = Object.keys(costingData);
+            var products = Object.keys(costingData);
             if (products.length === 0) {
                 document.getElementById('pricingStatus').textContent = 'אין עלויות שהוגדרו עדיין';
                 document.getElementById('costsList').innerHTML = '';
             } else {
-                document.getElementById('pricingStatus').textContent = `${products.length} מוצרים שהוגדרו`;
-                let html = '';
-                products.forEach(product => {
-                    html += `
-                        <div class="cost-item">
-                            <div class="cost-item-info">
-                                <div class="cost-item-name">${product}</div>
-                                <div class="cost-item-price">₪${costingData[product].toFixed(2)} לכל משתמש</div>
-                            </div>
-                            <button class="cost-item-delete" onclick="deleteCost('${product}')">מחק</button>
-                        </div>
-                    `;
+                document.getElementById('pricingStatus').textContent = products.length + ' מוצרים שהוגדרו';
+                var html = '';
+                products.forEach(function(product) {
+                    html += '<div class="cost-item"><div><strong>' + product + '</strong><br><span class="help-text">₪' + costingData[product].toFixed(2) + ' לכל משתמש</span></div><button class="cost-item-delete" onclick="deleteCost(\'' + product + '\')">מחק</button></div>';
                 });
                 document.getElementById('costsList').innerHTML = html;
             }
@@ -452,8 +358,8 @@
         }
 
         function addCost() {
-            const productName = document.getElementById('productName').value.trim();
-            const productCost = parseFloat(document.getElementById('productCost').value);
+            var productName = document.getElementById('productName').value.trim();
+            var productCost = parseFloat(document.getElementById('productCost').value);
 
             if (!productName) {
                 alert('הזן שם מוצר');
@@ -469,9 +375,10 @@
             document.getElementById('productName').value = '';
             document.getElementById('productCost').value = '';
             updatePricingStatus();
+            alert(productName + ' נוסף בהצלחה!');
         }
 
-        async function analyzeFile() {
+        function analyzeFile() {
             if (!baseData) {
                 alert('קודם כל עלה את הטבלה הקבועה בתסמונת "הגדרה"');
                 return;
@@ -482,110 +389,93 @@
                 return;
             }
 
-            const fileInput = document.getElementById('analyzeFile');
-            const file = fileInput.files[0];
+            var fileInput = document.getElementById('analyzeFile');
+            var file = fileInput.files[0];
 
             if (!file) {
                 alert('בחר קובץ CSV');
                 return;
             }
 
-            const text = await file.text();
-            const lines = text.trim().split('\n');
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    var text = e.target.result;
+                    var lines = text.trim().split('\n');
 
-            if (lines.length < 2) {
-                alert('הקובץ ריק או לא תקין');
-                return;
-            }
-
-            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-            const emailIndex = headers.findIndex(h => h === 'email');
-            const productIndex = headers.findIndex(h =>
-                h.includes('מוצר') || h.includes('product') || h.includes('שם') || h.includes('name')
-            );
-
-            if (emailIndex === -1 || productIndex === -1) {
-                alert('לא נמצאו עמודות email או שם מוצר');
-                return;
-            }
-
-            const departments = {};
-            let processedUsers = 0;
-            let unmatched = 0;
-
-            for (let i = 1; i < lines.length; i++) {
-                const parts = lines[i].split(',').map(p => p.trim());
-                if (parts.length > Math.max(emailIndex, productIndex) && parts[emailIndex]) {
-                    const email = parts[emailIndex].toLowerCase();
-                    const product = parts[productIndex];
-                    const dept = baseData[email];
-                    const cost = costingData[product];
-
-                    if (dept && cost !== undefined) {
-                        if (!departments[dept]) {
-                            departments[dept] = { users: 0, cost: 0 };
-                        }
-                        departments[dept].users += 1;
-                        departments[dept].cost += cost;
-                        processedUsers++;
-                    } else {
-                        unmatched++;
+                    if (lines.length < 2) {
+                        alert('הקובץ ריק או לא תקין');
+                        return;
                     }
+
+                    var headers = lines[0].split(',').map(function(h) { return h.trim().toLowerCase(); });
+                    var emailIndex = headers.findIndex(function(h) { return h === 'email'; });
+                    var productIndex = headers.findIndex(function(h) { 
+                        return h.includes('מוצר') || h.includes('product') || h.includes('שם');
+                    });
+
+                    if (emailIndex === -1 || productIndex === -1) {
+                        alert('לא נמצאו עמודות email או שם מוצר');
+                        return;
+                    }
+
+                    var departments = {};
+                    var unmatched = 0;
+
+                    for (var i = 1; i < lines.length; i++) {
+                        var parts = lines[i].split(',').map(function(p) { return p.trim(); });
+                        if (parts.length > Math.max(emailIndex, productIndex) && parts[emailIndex]) {
+                            var email = parts[emailIndex].toLowerCase();
+                            var product = parts[productIndex];
+                            var dept = baseData[email];
+                            var cost = costingData[product];
+
+                            if (dept && cost !== undefined) {
+                                if (!departments[dept]) {
+                                    departments[dept] = { users: 0, cost: 0 };
+                                }
+                                departments[dept].users += 1;
+                                departments[dept].cost += cost;
+                            } else {
+                                unmatched++;
+                            }
+                        }
+                    }
+
+                    var sorted = Object.entries(departments).sort(function(a, b) { 
+                        return b[1].cost - a[1].cost; 
+                    });
+                    var totalUsers = sorted.reduce(function(sum, item) { 
+                        return sum + item[1].users; 
+                    }, 0);
+                    var totalMonthlyCost = sorted.reduce(function(sum, item) { 
+                        return sum + item[1].cost; 
+                    }, 0);
+
+                    var html = '<div class="metrics"><div class="metric-card"><div class="metric-label">סה"כ משתמשים</div><div class="metric-value">' + totalUsers + '</div></div><div class="metric-card"><div class="metric-label">עלות חודשית כוללת</div><div class="metric-value">₪' + totalMonthlyCost.toFixed(2) + '</div></div></div>';
+
+                    if (unmatched > 0) {
+                        html += '<div style="background: #ffeaa7; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 14px;">⚠️ ' + unmatched + ' משתמשים לא תאמו</div>';
+                    }
+
+                    html += '<table><thead><tr><th>מחלקה</th><th style="text-align: center;">משתמשים</th><th style="text-align: center;">אחוז</th><th style="text-align: center;">עלות חודשית</th></tr></thead><tbody>';
+
+                    sorted.forEach(function(item) {
+                        var dept = item[0];
+                        var data = item[1];
+                        var percentage = ((data.users / totalUsers) * 100).toFixed(1);
+                        html += '<tr><td>' + dept + '</td><td style="text-align: center; font-weight: 600;">' + data.users + '</td><td style="text-align: center;">' + percentage + '%</td><td style="text-align: center; font-weight: 600;">₪' + data.cost.toFixed(2) + '</td></tr>';
+                    });
+
+                    html += '</tbody></table>';
+
+                    document.getElementById('results').innerHTML = html;
+                } catch (error) {
+                    alert('שגיאה בניתוח הקובץ: ' + error.message);
+                    console.error(error);
                 }
-            }
-
-            const sorted = Object.entries(departments).sort((a, b) => b[1].cost - a[1].cost);
-            const totalUsers = sorted.reduce((sum, [_, data]) => sum + data.users, 0);
-            const totalMonthlyCost = sorted.reduce((sum, [_, data]) => sum + data.cost, 0);
-
-            let html = `
-                <div class="metrics">
-                    <div class="metric-card">
-                        <div class="metric-label">סה"כ משתמשים</div>
-                        <div class="metric-value">${totalUsers}</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="metric-label">עלות חודשית כוללת</div>
-                        <div class="metric-value">₪${totalMonthlyCost.toFixed(2)}</div>
-                    </div>
-                </div>
-            `;
-
-            if (unmatched > 0) {
-                html += `<div class="warning">⚠️ ${unmatched} משתמשים לא תאמו (אימייל או מוצר לא נמצא)</div>`;
-            }
-
-            html += `
-                <table>
-                    <thead>
-                        <tr>
-                            <th>מחלקה</th>
-                            <th style="text-align: center;">משתמשים</th>
-                            <th style="text-align: center;">אחוז</th>
-                            <th style="text-align: center;">עלות חודשית</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-
-            sorted.forEach(([dept, data]) => {
-                const percentage = ((data.users / totalUsers) * 100).toFixed(1);
-                html += `
-                    <tr>
-                        <td>${dept}</td>
-                        <td style="text-align: center; font-weight: 600;">${data.users}</td>
-                        <td style="text-align: center;">${percentage}%</td>
-                        <td style="text-align: center; font-weight: 600;">₪${data.cost.toFixed(2)}</td>
-                    </tr>
-                `;
-            });
-
-            html += `
-                    </tbody>
-                </table>
-            `;
-
-            document.getElementById('results').innerHTML = html;
+            };
+            reader.readAsText(file);
         }
     </script>
 </body>
