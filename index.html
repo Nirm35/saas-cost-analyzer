@@ -198,10 +198,58 @@
             font-size: 12px;
         }
 
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #fafafa;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .history-item-info {
+            flex: 1;
+        }
+
+        .history-item-name {
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .history-item-date {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .history-item-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .history-item-buttons button {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
         .help-text {
             font-size: 13px;
             color: #999;
             margin-top: 4px;
+        }
+
+        .save-history-section {
+            background: #e3f2fd;
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            border-right: 4px solid #004578;
+        }
+
+        .save-history-section input {
+            margin-bottom: 8px;
         }
     </style>
 </head>
@@ -216,6 +264,7 @@
             <button class="tab-button active" onclick="switchTab(event, 'setup')">הגדרה</button>
             <button class="tab-button" onclick="switchTab(event, 'pricing')">עלויות</button>
             <button class="tab-button" onclick="switchTab(event, 'analyze')">ניתוח</button>
+            <button class="tab-button" onclick="switchTab(event, 'history')">📋 היסטוריה</button>
         </div>
 
         <!-- TAB 1: SETUP -->
@@ -273,7 +322,25 @@
 
             <button class="button" onclick="analyzeFile()">📊 חשב עלויות</button>
 
+            <div id="analysisResults" style="display: none;">
+                <div class="save-history-section">
+                    <label>שמור ניתוח זה להיסטוריה:</label>
+                    <input type="text" id="saveName" placeholder="תן שם לניתוח זה (למשל: Lucid - דצמבר 2024)">
+                    <button class="button" onclick="saveToHistory()">💾 שמור לניסטוריה</button>
+                </div>
+            </div>
+
             <div id="results" style="margin-top: 20px;"></div>
+        </div>
+
+        <!-- TAB 4: HISTORY -->
+        <div id="history" class="tab-content">
+            <div class="status-box">
+                <div class="status-label">ניתוחים שמורים</div>
+                <div class="status-value" id="historyStatus">אין ניתוחים שמורים עדיין</div>
+            </div>
+
+            <div id="historyList" style="margin-top: 20px;"></div>
         </div>
     </div>
 
@@ -281,6 +348,7 @@
         var baseDataMap = {};
         var costingData = {};
         var lastAnalysisData = null;
+        var analysisHistory = {};
 
         function loadFromStorage() {
             try {
@@ -292,10 +360,15 @@
                 if (storedCosts) {
                     costingData = JSON.parse(storedCosts);
                 }
+                var storedHistory = localStorage.getItem('saascost_history');
+                if (storedHistory) {
+                    analysisHistory = JSON.parse(storedHistory);
+                }
             } catch(e) {
-                console.error('שגיאה בטעינה מlocalStorage:', e);
+                console.error('שגיאה בטעינה:', e);
                 baseDataMap = {};
                 costingData = {};
+                analysisHistory = {};
             }
             updateUI();
         }
@@ -304,14 +377,16 @@
             try {
                 localStorage.setItem('saascost_basedatamap', JSON.stringify(baseDataMap));
                 localStorage.setItem('saascost_costingdata', JSON.stringify(costingData));
+                localStorage.setItem('saascost_history', JSON.stringify(analysisHistory));
             } catch(e) {
-                console.error('שגיאה בשמירה לlocalStorage:', e);
+                console.error('שגיאה בשמירה:', e);
             }
         }
 
         function updateUI() {
             updateSetupStatus();
             updatePricingStatus();
+            updateHistoryStatus();
         }
 
         function switchTab(event, tabName) {
@@ -507,6 +582,7 @@
 
                     var headers = lines[0].split(',').map(function(h) { return h.trim().toLowerCase(); });
                     var emailIndex = headers.findIndex(function(h) { return h === 'email'; });
+                    var lastLoginIndex = headers.findIndex(function(h) { return h.includes('last') && h.includes('login'); });
                     
                     if (emailIndex === -1) {
                         alert('לא נמצאה עמודת email בקובץ');
@@ -532,30 +608,66 @@
 
                     var departments = {};
                     var unmatchedRows = [];
+                    var inactiveUsers = [];
                     var processedCount = 0;
+                    var now = new Date();
+                    var ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
                     for (var i = 1; i < lines.length; i++) {
                         if (!lines[i].trim()) continue;
                         var parts = lines[i].split(',').map(function(p) { return p.trim(); });
-                        if (parts.length > Math.max(emailIndex, productIndex) && parts[emailIndex]) {
+                        if (parts.length > emailIndex && parts[emailIndex]) {
                             var email = parts[emailIndex].toLowerCase();
-                            var product = parts[productIndex];
                             var dept = baseData[email];
-                            var cost = costingData[product];
 
-                            if (dept && cost !== undefined) {
-                                if (!departments[dept]) {
-                                    departments[dept] = { users: 0, cost: 0 };
+                            if (lastLoginIndex !== -1 && parts.length > lastLoginIndex && parts[lastLoginIndex]) {
+                                var lastLoginDate = new Date(parts[lastLoginIndex]);
+                                if (lastLoginDate < ninetyDaysAgo) {
+                                    inactiveUsers.push({
+                                        email: parts[emailIndex],
+                                        dept: dept || 'לא מוגדר',
+                                        lastLogin: parts[lastLoginIndex]
+                                    });
                                 }
-                                departments[dept].users += 1;
-                                departments[dept].cost += cost;
-                                processedCount++;
-                            } else {
+                            }
+
+                            var product = '';
+                            var pIndex = -1;
+                            for (var j = 0; j < headers.length; j++) {
+                                var header = headers[j];
+                                var isProduct = Object.keys(costingData).some(function(prod) { 
+                                    return header.toLowerCase() === prod.toLowerCase(); 
+                                });
+                                if (isProduct) {
+                                    pIndex = j;
+                                    product = parts[j];
+                                    break;
+                                }
+                            }
+
+                            if (pIndex !== -1) {
+                                var cost = costingData[product];
+                                if (dept && cost !== undefined) {
+                                    if (!departments[dept]) {
+                                        departments[dept] = { users: 0, cost: 0 };
+                                    }
+                                    departments[dept].users += 1;
+                                    departments[dept].cost += cost;
+                                    processedCount++;
+                                } else if (dept) {
+                                    unmatchedRows.push({
+                                        rowNum: i + 1,
+                                        email: email,
+                                        product: product,
+                                        reason: 'מוצר לא מוגדר'
+                                    });
+                                }
+                            } else if (dept) {
                                 unmatchedRows.push({
                                     rowNum: i + 1,
                                     email: email,
-                                    product: product,
-                                    reason: !dept ? 'email לא נמצא בטבלה הקבועה' : 'מוצר לא מוגדר'
+                                    product: 'לא נמצא',
+                                    reason: 'לא נמצאה עמודת מוצר'
                                 });
                             }
                         }
@@ -578,6 +690,12 @@
 
                     var html = '<div class="metrics"><div class="metric-card"><div class="metric-label">סה"כ משתמשים שהתאימו</div><div class="metric-value">' + totalUsers + '</div></div><div class="metric-card"><div class="metric-label">עלות חודשית כוללת</div><div class="metric-value">₪' + totalMonthlyCost.toFixed(2) + '</div></div></div>';
 
+                    if (inactiveUsers.length > 0) {
+                        html += '<div style="background: #ffe0b2; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 14px;">😴 ' + inactiveUsers.length + ' משתמשים לא התחברו ב-90 ימים האחרונים</div>';
+                        var inactiveJson = JSON.stringify(inactiveUsers).replace(/\\/g, '\\\\').replace(/"/g, '&quot;');
+                        html += '<button class="button" onclick="downloadInactiveUsers(' + "'" + inactiveJson + "'" + ')" style="margin-bottom: 16px;">📥 הורד משתמשים לא פעילים (CSV)</button>';
+                    }
+
                     if (unmatchedRows.length > 0) {
                         html += '<div style="background: #ffeaa7; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 14px;">⚠️ ' + unmatchedRows.length + ' שורות לא תאמו</div>';
                         var unmatchedJson = JSON.stringify(unmatchedRows).replace(/\\/g, '\\\\').replace(/"/g, '&quot;');
@@ -596,12 +714,19 @@
                     html += '</tbody></table>';
 
                     document.getElementById('results').innerHTML = html;
+                    document.getElementById('analysisResults').style.display = 'block';
                     
                     lastAnalysisData = {
                         lines: lines,
                         emailIndex: emailIndex,
                         baseData: baseData,
-                        departments: departments
+                        departments: departments,
+                        inactiveUsers: inactiveUsers,
+                        unmatchedRows: unmatchedRows,
+                        sorted: sorted,
+                        totalUsers: totalUsers,
+                        totalMonthlyCost: totalMonthlyCost,
+                        html: html
                     };
                 } catch (error) {
                     alert('שגיאה בניתוח הקובץ: ' + error.message);
@@ -609,6 +734,73 @@
                 }
             };
             reader.readAsText(file);
+        }
+
+        function saveToHistory() {
+            if (!lastAnalysisData) {
+                alert('בצע ניתוח תחילה');
+                return;
+            }
+
+            var saveName = document.getElementById('saveName').value.trim();
+            if (!saveName) {
+                alert('הזן שם לניתוח');
+                return;
+            }
+
+            var now = new Date();
+            var timestamp = now.toLocaleString('he-IL');
+            var id = now.getTime();
+
+            analysisHistory[id] = {
+                name: saveName,
+                timestamp: timestamp,
+                data: lastAnalysisData
+            };
+
+            saveToStorage();
+            updateUI();
+            document.getElementById('saveName').value = '';
+            alert('הניתוח נשמר בהצלחה!');
+        }
+
+        function updateHistoryStatus() {
+            var historyIds = Object.keys(analysisHistory);
+            if (historyIds.length === 0) {
+                document.getElementById('historyStatus').textContent = 'אין ניתוחים שמורים עדיין';
+                document.getElementById('historyList').innerHTML = '';
+            } else {
+                document.getElementById('historyStatus').textContent = historyIds.length + ' ניתוחים שמורים';
+                var html = '';
+                historyIds.sort(function(a, b) { return b - a; }).forEach(function(id) {
+                    var item = analysisHistory[id];
+                    html += '<div class="history-item"><div class="history-item-info"><div class="history-item-name">' + item.name + '</div><div class="history-item-date">' + item.timestamp + '</div></div><div class="history-item-buttons"><button class="button" style="padding: 6px 12px; font-size: 12px;" onclick="viewHistory(' + id + ')">👁️ הצג</button><button class="table-item-delete" onclick="deleteHistory(' + id + ')">מחק</button></div></div>';
+                });
+                document.getElementById('historyList').innerHTML = html;
+            }
+        }
+
+        function viewHistory(id) {
+            var item = analysisHistory[id];
+            if (!item) {
+                alert('הניתוח לא נמצא');
+                return;
+            }
+
+            document.getElementById('results').innerHTML = item.data.html;
+            lastAnalysisData = item.data;
+            document.getElementById('analysisResults').style.display = 'none';
+            
+            var analyzeTab = document.querySelector('[onclick*="analyze"]');
+            switchTab({ target: analyzeTab, preventDefault: function(){} }, 'analyze');
+        }
+
+        function deleteHistory(id) {
+            if (confirm('האם אתה בטוח שברצונך למחוק את הניתוח?')) {
+                delete analysisHistory[id];
+                saveToStorage();
+                updateUI();
+            }
         }
 
         function downloadUnmatched(unmatchedJson) {
@@ -640,6 +832,35 @@
             }
         }
 
+        function downloadInactiveUsers(inactiveJson) {
+            try {
+                var inactiveUsers = JSON.parse(inactiveJson.replace(/&quot;/g, '"').replace(/\\\\/g, '\\'));
+                
+                if (!inactiveUsers || inactiveUsers.length === 0) {
+                    alert('אין משתמשים לא פעילים');
+                    return;
+                }
+
+                var csv = 'אימייל,מחלקה,התחברות אחרונה\n';
+                inactiveUsers.forEach(function(user) {
+                    csv += '"' + user.email + '","' + user.dept + '","' + user.lastLogin + '"\n';
+                });
+
+                var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                var link = document.createElement('a');
+                var url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', 'inactive_users_' + new Date().getTime() + '.csv');
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (e) {
+                alert('שגיאה בהורדה: ' + e.message);
+                console.error(e);
+            }
+        }
+
         function downloadDeptUsers(dept, emailIndex) {
             if (!lastAnalysisData) {
                 alert('אין נתונים לניתוח. בצע ניתוח תחילה');
@@ -648,6 +869,9 @@
 
             var lines = lastAnalysisData.lines;
             var baseData = lastAnalysisData.baseData;
+            
+            var headers = lines[0].split(',').map(function(h) { return h.trim().toLowerCase(); });
+            var lastLoginIndex = headers.findIndex(function(h) { return h.includes('last') && h.includes('login'); });
             
             var deptUsers = [];
             
@@ -659,9 +883,14 @@
                     var userDept = baseData[email];
                     
                     if (userDept === dept) {
+                        var lastLogin = '';
+                        if (lastLoginIndex !== -1 && parts.length > lastLoginIndex) {
+                            lastLogin = parts[lastLoginIndex];
+                        }
                         deptUsers.push({
                             email: parts[emailIndex],
-                            dept: userDept
+                            dept: userDept,
+                            lastLogin: lastLogin
                         });
                     }
                 }
@@ -672,9 +901,9 @@
                 return;
             }
 
-            var csv = 'אימייל,מחלקה\n';
+            var csv = 'אימייל,מחלקה,התחברות אחרונה\n';
             deptUsers.forEach(function(user) {
-                csv += '"' + user.email + '","' + user.dept + '"\n';
+                csv += '"' + user.email + '","' + user.dept + '","' + user.lastLogin + '"\n';
             });
 
             var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
