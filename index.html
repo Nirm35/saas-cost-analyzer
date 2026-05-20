@@ -596,18 +596,26 @@
                         html += '<button class="button" onclick="downloadUnmatched(\'' + unmatchedJson + '\')" style="margin-bottom: 16px;">📥 הורד שורות שלא תאמו (CSV)</button>';
                     }
 
-                    html += '<table><thead><tr><th>מחלקה</th><th style="text-align: center;">משתמשים</th><th style="text-align: center;">אחוז</th><th style="text-align: center;">עלות חודשית</th></tr></thead><tbody>';
+                    html += '<table><thead><tr><th>מחלקה</th><th style="text-align: center;">משתמשים</th><th style="text-align: center;">אחוז</th><th style="text-align: center;">עלות חודשית</th><th style="text-align: center;">הורדה</th></tr></thead><tbody>';
 
                     sorted.forEach(function(item) {
                         var dept = item[0];
                         var data = item[1];
                         var percentage = ((data.users / totalUsers) * 100).toFixed(1);
-                        html += '<tr><td>' + dept + '</td><td style="text-align: center; font-weight: 600;">' + data.users + '</td><td style="text-align: center;">' + percentage + '%</td><td style="text-align: center; font-weight: 600;">₪' + data.cost.toFixed(2) + '</td></tr>';
+                        html += '<tr><td>' + dept + '</td><td style="text-align: center; font-weight: 600;">' + data.users + '</td><td style="text-align: center;">' + percentage + '%</td><td style="text-align: center; font-weight: 600;">₪' + data.cost.toFixed(2) + '</td><td style="text-align: center;"><button class="button" style="padding: 6px 12px; font-size: 12px;" onclick="downloadDeptUsers(\'' + dept.replace(/'/g, "\\'") + '\', ' + emailIndex + ')">📥</button></td></tr>';
                     });
 
                     html += '</tbody></table>';
 
                     document.getElementById('results').innerHTML = html;
+                    
+                    // שמור את הנתונים לשימוש בהורדה
+                    lastAnalysisData = {
+                        lines: lines,
+                        emailIndex: emailIndex,
+                        baseData: baseData,
+                        departments: departments
+                    };
                 } catch (error) {
                     alert('שגיאה בניתוח הקובץ: ' + error.message);
                     console.error(error);
@@ -621,7 +629,58 @@
             loadFromStorage();
         });
 
-        function downloadUnmatched(unmatchedJson) {
+        var lastAnalysisData = null;
+
+        function downloadDeptUsers(dept, emailIndex) {
+            if (!lastAnalysisData) {
+                alert('אין נתונים לניתוח. בצע ניתוח תחילה');
+                return;
+            }
+
+            var lines = lastAnalysisData.lines;
+            var baseData = lastAnalysisData.baseData;
+            
+            // אסוף את כל משתמשי המחלקה הנבחרת
+            var deptUsers = [];
+            
+            for (var i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                var parts = lines[i].split(',').map(function(p) { return p.trim(); });
+                if (parts.length > emailIndex && parts[emailIndex]) {
+                    var email = parts[emailIndex].toLowerCase();
+                    var userDept = baseData[email];
+                    
+                    if (userDept === dept) {
+                        deptUsers.push({
+                            email: parts[emailIndex],
+                            dept: userDept
+                        });
+                    }
+                }
+            }
+
+            if (deptUsers.length === 0) {
+                alert('אין משתמשים במחלקה זו');
+                return;
+            }
+
+            // בנה CSV
+            var csv = 'אימייל,מחלקה\n';
+            deptUsers.forEach(function(user) {
+                csv += '"' + user.email + '","' + user.dept + '"\n';
+            });
+
+            // יצור קובץ
+            var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            var link = document.createElement('a');
+            var url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', dept + '_users_' + new Date().getTime() + '.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
             try {
                 var unmatchedRows = JSON.parse(unmatchedJson.replace(/&quot;/g, '"').replace(/\\\\/g, '\\'));
                 
