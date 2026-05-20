@@ -203,25 +203,6 @@
             color: #999;
             margin-top: 4px;
         }
-
-        .button-group {
-            display: flex;
-            gap: 8px;
-            margin-top: 12px;
-        }
-
-        .button-group button {
-            flex: 1;
-        }
-
-        .button.secondary {
-            background: #e0e0e0;
-            color: #333;
-        }
-
-        .button.secondary:hover {
-            background: #d0d0d0;
-        }
     </style>
 </head>
 <body>
@@ -299,27 +280,35 @@
     <script>
         var baseDataMap = {};
         var costingData = {};
+        var lastAnalysisData = null;
 
-        // Load from localStorage on page load
         function loadFromStorage() {
-            var stored = localStorage.getItem('saascost_basedatamap');
-            if (stored) {
-                baseDataMap = JSON.parse(stored);
-            }
-            var storedCosts = localStorage.getItem('saascost_costingdata');
-            if (storedCosts) {
-                costingData = JSON.parse(storedCosts);
+            try {
+                var stored = localStorage.getItem('saascost_basedatamap');
+                if (stored) {
+                    baseDataMap = JSON.parse(stored);
+                }
+                var storedCosts = localStorage.getItem('saascost_costingdata');
+                if (storedCosts) {
+                    costingData = JSON.parse(storedCosts);
+                }
+            } catch(e) {
+                console.error('שגיאה בטעינה מlocalStorage:', e);
+                baseDataMap = {};
+                costingData = {};
             }
             updateUI();
         }
 
-        // Save to localStorage
         function saveToStorage() {
-            localStorage.setItem('saascost_basedatamap', JSON.stringify(baseDataMap));
-            localStorage.setItem('saascost_costingdata', JSON.stringify(costingData));
+            try {
+                localStorage.setItem('saascost_basedatamap', JSON.stringify(baseDataMap));
+                localStorage.setItem('saascost_costingdata', JSON.stringify(costingData));
+            } catch(e) {
+                console.error('שגיאה בשמירה לlocalStorage:', e);
+            }
         }
 
-        // Update UI
         function updateUI() {
             updateSetupStatus();
             updatePricingStatus();
@@ -481,7 +470,6 @@
                 return;
             }
 
-            // ממזג את כל הטבלאות הקבועות יחד (מניע דופליקציות)
             var baseData = {};
             var tables = Object.keys(baseDataMap);
             tables.forEach(function(table) {
@@ -592,8 +580,8 @@
 
                     if (unmatchedRows.length > 0) {
                         html += '<div style="background: #ffeaa7; padding: 12px; border-radius: 4px; margin-bottom: 16px; font-size: 14px;">⚠️ ' + unmatchedRows.length + ' שורות לא תאמו</div>';
-                        var unmatchedJson = JSON.stringify(unmatchedRows).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                        html += '<button class="button" onclick="downloadUnmatched(\'' + unmatchedJson + '\')" style="margin-bottom: 16px;">📥 הורד שורות שלא תאמו (CSV)</button>';
+                        var unmatchedJson = JSON.stringify(unmatchedRows).replace(/\\/g, '\\\\').replace(/"/g, '&quot;');
+                        html += '<button class="button" onclick="downloadUnmatched(' + "'" + unmatchedJson + "'" + ')" style="margin-bottom: 16px;">📥 הורד שורות שלא תאמו (CSV)</button>';
                     }
 
                     html += '<table><thead><tr><th>מחלקה</th><th style="text-align: center;">משתמשים</th><th style="text-align: center;">אחוז</th><th style="text-align: center;">עלות חודשית</th><th style="text-align: center;">הורדה</th></tr></thead><tbody>';
@@ -602,14 +590,13 @@
                         var dept = item[0];
                         var data = item[1];
                         var percentage = ((data.users / totalUsers) * 100).toFixed(1);
-                        html += '<tr><td>' + dept + '</td><td style="text-align: center; font-weight: 600;">' + data.users + '</td><td style="text-align: center;">' + percentage + '%</td><td style="text-align: center; font-weight: 600;">₪' + data.cost.toFixed(2) + '</td><td style="text-align: center;"><button class="button" style="padding: 6px 12px; font-size: 12px;" onclick="downloadDeptUsers(\'' + dept.replace(/'/g, "\\'") + '\', ' + emailIndex + ')">📥</button></td></tr>';
+                        html += '<tr><td>' + dept + '</td><td style="text-align: center; font-weight: 600;">' + data.users + '</td><td style="text-align: center;">' + percentage + '%</td><td style="text-align: center; font-weight: 600;">₪' + data.cost.toFixed(2) + '</td><td style="text-align: center;"><button class="button" style="padding: 6px 12px; font-size: 12px;" onclick="downloadDeptUsers(' + "'" + dept.replace(/'/g, "\\'") + "'" + ', ' + emailIndex + ')">📥</button></td></tr>';
                     });
 
                     html += '</tbody></table>';
 
                     document.getElementById('results').innerHTML = html;
                     
-                    // שמור את הנתונים לשימוש בהורדה
                     lastAnalysisData = {
                         lines: lines,
                         emailIndex: emailIndex,
@@ -624,12 +611,34 @@
             reader.readAsText(file);
         }
 
-        // Load data on page load
-        window.addEventListener('load', function() {
-            loadFromStorage();
-        });
+        function downloadUnmatched(unmatchedJson) {
+            try {
+                var unmatchedRows = JSON.parse(unmatchedJson.replace(/&quot;/g, '"').replace(/\\\\/g, '\\'));
+                
+                if (!unmatchedRows || unmatchedRows.length === 0) {
+                    alert('אין שורות לא תואמות להורדה');
+                    return;
+                }
 
-        var lastAnalysisData = null;
+                var csv = 'שורה,אימייל,מוצר,סיבה\n';
+                unmatchedRows.forEach(function(row) {
+                    csv += row.rowNum + ',"' + row.email + '","' + row.product + '","' + row.reason + '"\n';
+                });
+
+                var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+                var link = document.createElement('a');
+                var url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', 'unmatched_' + new Date().getTime() + '.csv');
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (e) {
+                alert('שגיאה בהורדה: ' + e.message);
+                console.error(e);
+            }
+        }
 
         function downloadDeptUsers(dept, emailIndex) {
             if (!lastAnalysisData) {
@@ -640,7 +649,6 @@
             var lines = lastAnalysisData.lines;
             var baseData = lastAnalysisData.baseData;
             
-            // אסוף את כל משתמשי המחלקה הנבחרת
             var deptUsers = [];
             
             for (var i = 1; i < lines.length; i++) {
@@ -664,13 +672,11 @@
                 return;
             }
 
-            // בנה CSV
             var csv = 'אימייל,מחלקה\n';
             deptUsers.forEach(function(user) {
                 csv += '"' + user.email + '","' + user.dept + '"\n';
             });
 
-            // יצור קובץ
             var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
             var link = document.createElement('a');
             var url = URL.createObjectURL(blob);
@@ -681,35 +687,10 @@
             link.click();
             document.body.removeChild(link);
         }
-            try {
-                var unmatchedRows = JSON.parse(unmatchedJson.replace(/&quot;/g, '"').replace(/\\\\/g, '\\'));
-                
-                if (!unmatchedRows || unmatchedRows.length === 0) {
-                    alert('אין שורות לא תואמות להורדה');
-                    return;
-                }
 
-                // בנה CSV
-                var csv = 'שורה,אימייל,מוצר,סיבה\n';
-                unmatchedRows.forEach(function(row) {
-                    csv += row.rowNum + ',"' + row.email + '","' + row.product + '","' + row.reason + '"\n';
-                });
-
-                // יצור קובץ
-                var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-                var link = document.createElement('a');
-                var url = URL.createObjectURL(blob);
-                link.setAttribute('href', url);
-                link.setAttribute('download', 'unmatched_' + new Date().getTime() + '.csv');
-                link.style.visibility = 'hidden';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            } catch (e) {
-                alert('שגיאה בהורדה: ' + e.message);
-                console.error(e);
-            }
-        }
+        window.addEventListener('load', function() {
+            loadFromStorage();
+        });
     </script>
 </body>
 </html>
